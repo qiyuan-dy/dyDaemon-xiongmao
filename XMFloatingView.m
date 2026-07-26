@@ -63,6 +63,15 @@
     return self;
 }
 
+// Pass through touches outside ball/panel to underlying Douyin UI
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *hit = [super hitTest:point withEvent:event];
+    if (hit == self) {
+        return nil;  // let touches pass through to Douyin
+    }
+    return hit;
+}
+
 #pragma mark - 悬浮球
 
 - (void)setupBallView {
