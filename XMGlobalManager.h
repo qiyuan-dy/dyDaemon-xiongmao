@@ -7,6 +7,8 @@
 
 #import <Foundation/Foundation.h>
 
+@class UIViewController;
+
 @interface XMGlobalManager : NSObject
 
 /// 单例
