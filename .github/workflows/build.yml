@@ -20,6 +20,10 @@ jobs:
           fi
           echo "THEOS=$HOME/theos" >> $GITHUB_ENV
 
+      - name: Install ldid
+        run: |
+          brew install ldid 2>/dev/null || echo "ldid install skipped (may already exist)"
+
       - name: Check SDK
         run: |
           echo "=== Xcode 版本 ==="
