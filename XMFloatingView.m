@@ -143,8 +143,6 @@
     
     // ---- 关注通道开关 ----
     CGFloat sy = 130;
-    CGFloat lw = 160;
-    CGFloat sw = 51;
     CGFloat rh = 32;
     
     // CH1
