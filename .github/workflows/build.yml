@@ -26,16 +26,18 @@ jobs:
           xcodebuild -version
           echo "=== 可用 SDK ==="
           ls $HOME/theos/sdks/ 2>/dev/null || echo "需要下载 SDK"
-          # 如果没有 SDK，从 Xcode 创建软链接
-          if [ ! -d "$HOME/theos/sdks" ] || [ -z "$(ls -A $HOME/theos/sdks/ 2>/dev/null)" ]; then
-            echo "从 Xcode 链接 SDK..."
-            mkdir -p $HOME/theos/sdks
-            SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
-            SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
-            ln -sf "$SDK_PATH" "$HOME/theos/sdks/iPhoneOS${SDK_VERSION}.sdk"
-            echo "SDK 链接完成: iPhoneOS${SDK_VERSION}.sdk"
-          fi
+          # 链接 Xcode SDK
+          mkdir -p $HOME/theos/sdks
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
+          echo "SDK Path: $SDK_PATH"
+          echo "SDK Version: $SDK_VERSION"
+          ln -sf "$SDK_PATH" "$HOME/theos/sdks/iPhoneOS${SDK_VERSION}.sdk"
+          echo "SDK 链接: iPhoneOS${SDK_VERSION}.sdk → $SDK_PATH"
           ls -la $HOME/theos/sdks/
+          # 更新 Makefile 中的 SDK 版本
+          sed -i '' "s/TARGET = iphone:clang:15.0:12.0/TARGET = iphone:clang:${SDK_VERSION}:12.0/" Makefile
+          echo "Makefile TARGET 已更新"
 
       - name: Build
         run: |
