@@ -2,8 +2,6 @@
 //  XMGlobalManager.m
 //  dyDaemon - 熊猫平台版
 //
-//  全局状态管理中心实现
-//
 
 #import "XMGlobalManager.h"
 
@@ -32,17 +30,18 @@ static NSString * const kXMConfigFileName = @"xiongmao_config.plist";
         _maxInterval = 15;
         _threadCount = 1;
         _maxErrorCount = 10;
+        // 默认启用三个关注通道
+        _followCh1Enabled = YES;
+        _followCh2Enabled = YES;
+        _followCh3Enabled = YES;
         [self loadConfig];
     }
     return self;
 }
 
-#pragma mark - 启动/停止
-
 - (void)startAllTasks {
     if (self.isRunning) return;
     
-    // Local server mode: only check localApiKey, not apiKey
     if (self.useLocalServer) {
         if (!self.localApiKey || self.localApiKey.length == 0) {
             NSLog(@"[xm] Error: localApiKey not set");
@@ -61,15 +60,12 @@ static NSString * const kXMConfigFileName = @"xiongmao_config.plist";
     
     self.isRunning = YES;
     NSLog(@"[熊猫] 任务启动成功");
-    
-    // 通知任务服务开始拉任务
     [[NSNotificationCenter defaultCenter] postNotificationName:@"XMStartTasks" object:nil];
 }
 
 - (void)stopAllTasks {
     self.isRunning = NO;
     NSLog(@"[熊猫] 任务已停止");
-    
     [[NSNotificationCenter defaultCenter] postNotificationName:@"XMStopTasks" object:nil];
 }
 
@@ -86,6 +82,9 @@ static NSString * const kXMConfigFileName = @"xiongmao_config.plist";
     if (self.localServerURL) config[@"localServerURL"] = self.localServerURL;
     if (self.localApiKey) config[@"localApiKey"] = self.localApiKey;
     if (self.deviceName) config[@"deviceName"] = self.deviceName;
+    config[@"followCh1Enabled"] = @(self.followCh1Enabled);
+    config[@"followCh2Enabled"] = @(self.followCh2Enabled);
+    config[@"followCh3Enabled"] = @(self.followCh3Enabled);
     config[@"diggEnabled"] = @(self.diggEnabled);
     config[@"followEnabled"] = @(self.followEnabled);
     config[@"collectEnabled"] = @(self.collectEnabled);
@@ -112,6 +111,9 @@ static NSString * const kXMConfigFileName = @"xiongmao_config.plist";
         if (config[@"localServerURL"]) self.localServerURL = config[@"localServerURL"];
         if (config[@"localApiKey"]) self.localApiKey = config[@"localApiKey"];
         if (config[@"deviceName"]) self.deviceName = config[@"deviceName"];
+        if (config[@"followCh1Enabled"]) self.followCh1Enabled = [config[@"followCh1Enabled"] boolValue];
+        if (config[@"followCh2Enabled"]) self.followCh2Enabled = [config[@"followCh2Enabled"] boolValue];
+        if (config[@"followCh3Enabled"]) self.followCh3Enabled = [config[@"followCh3Enabled"] boolValue];
         self.diggEnabled = [config[@"diggEnabled"] boolValue];
         self.followEnabled = [config[@"followEnabled"] boolValue];
         self.collectEnabled = [config[@"collectEnabled"] boolValue];

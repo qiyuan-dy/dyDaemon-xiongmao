@@ -11,8 +11,7 @@ dyDaemon-XiongMao_FILES = Tweak.xm \
     XMGlobalManager.m \
     XMTaskService.m \
     XMOperationEngine.m \
-    XMFloatingView.m \
-    XMNetworkDetector.m
+    XMFloatingView.m
 
 # 编译框架
 dyDaemon-XiongMao_FRAMEWORKS = UIKit Foundation

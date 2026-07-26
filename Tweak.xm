@@ -41,7 +41,7 @@ static void updateCurrentUserInfo(void);
 
 static void __attribute__((constructor)) initialize() {
     NSLog(@"[熊猫] dyDaemon 熊猫平台版 已加载");
-    NSLog(@"[熊猫] 版本: 1.0.0");
+    NSLog(@"[熊猫] 版本: 1.1.0");
     
     // 延迟初始化，等 App 启动完成
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
