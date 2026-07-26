@@ -1,13 +1,12 @@
 //
 //  XMFloatingView.m
-//  dyDaemon - 熊猫平台版 v1.1
+//  dyDaemon - 熊猫平台版 v2.0
 //
 //  悬浮窗控制面板 — 三通道关注 + 可调间隔
 //
 
 #import "XMFloatingView.h"
 #import "XMGlobalManager.h"
-#import "XMOperationEngine.h"
 
 @interface XMFloatingView ()
 @property (nonatomic, strong) UIView *ballView;
@@ -26,9 +25,12 @@
 @property (nonatomic, strong) UISwitch *localSwitch;
 @property (nonatomic, strong) UITextField *minIntervalField;
 @property (nonatomic, strong) UITextField *maxIntervalField;
-@property (nonatomic, strong) UITextField *apiKeyField;
 @property (nonatomic, strong) UIButton *configBtn;
 @property (nonatomic, strong) UIButton *closeBtn;
+
+// 统计
+@property (nonatomic, assign) NSInteger followTotal;
+@property (nonatomic, assign) NSInteger followSuccess;
 @end
 
 @implementation XMFloatingView
@@ -50,7 +52,6 @@
         self.layer.zPosition = 9999;
         [self setupBallView];
         [self setupPanelView];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateStats) name:@"XMStatsUpdated" object:nil];
     }
     return self;
 }
@@ -108,7 +109,7 @@
 
 - (void)setupPanelView {
     CGFloat pw = 300;
-    CGFloat ph = 460;
+    CGFloat ph = 400;
     self.panelView = [[UIView alloc] initWithFrame:CGRectMake((self.bounds.size.width-pw)/2, (self.bounds.size.height-ph)/2, pw, ph)];
     self.panelView.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.95];
     self.panelView.layer.cornerRadius = 12;
@@ -118,7 +119,7 @@
     
     // 标题
     self.titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 8, pw-20, 28)];
-    self.titleLabel.text = @"🐼 熊猫云控 v1.1";
+    self.titleLabel.text = @"🐼 熊猫云控 v2.0";
     self.titleLabel.textColor = [UIColor whiteColor];
     self.titleLabel.font = [UIFont boldSystemFontOfSize:15];
     self.titleLabel.textAlignment = NSTextAlignmentCenter;
@@ -145,29 +146,29 @@
     CGFloat sy = 130;
     CGFloat rh = 32;
     
-    // CH1
-    [self addSwitchLabel:@"关注 CH1(followUser3)" x:15 y:sy pw:pw];
+    // CH1 (daemon)
+    [self addSwitchLabel:@"关注 CH1(daemon-followUser3)" x:15 y:sy pw:pw];
     self.ch1Switch = [self makeSwitchAt:CGPointMake(pw-70, sy)];
     self.ch1Switch.tag = 1;
     [self.ch1Switch addTarget:self action:@selector(onChSwitchChanged:) forControlEvents:UIControlEventValueChanged];
     [self.panelView addSubview:self.ch1Switch];
     
-    // CH2
-    [self addSwitchLabel:@"关注 CH2(followUserByLive2)" x:15 y:sy+rh pw:pw];
+    // CH2 (daemon)
+    [self addSwitchLabel:@"关注 CH2(daemon-followUserByLive2)" x:15 y:sy+rh pw:pw];
     self.ch2Switch = [self makeSwitchAt:CGPointMake(pw-70, sy+rh)];
     self.ch2Switch.tag = 2;
     [self.ch2Switch addTarget:self action:@selector(onChSwitchChanged:) forControlEvents:UIControlEventValueChanged];
     [self.panelView addSubview:self.ch2Switch];
     
-    // CH3
-    [self addSwitchLabel:@"关注 CH3(标准API)" x:15 y:sy+rh*2 pw:pw];
+    // CH3 (直连)
+    [self addSwitchLabel:@"关注 CH3(直连标准API)" x:15 y:sy+rh*2 pw:pw];
     self.ch3Switch = [self makeSwitchAt:CGPointMake(pw-70, sy+rh*2)];
     self.ch3Switch.tag = 3;
     [self.ch3Switch addTarget:self action:@selector(onChSwitchChanged:) forControlEvents:UIControlEventValueChanged];
     [self.panelView addSubview:self.ch3Switch];
     
     // Digg
-    [self addSwitchLabel:@"点赞(预留)" x:15 y:sy+rh*3 pw:pw];
+    [self addSwitchLabel:@"点赞(daemon+直连回退)" x:15 y:sy+rh*3 pw:pw];
     self.diggSwitch = [self makeSwitchAt:CGPointMake(pw-70, sy+rh*3)];
     self.diggSwitch.tag = 10;
     [self.diggSwitch addTarget:self action:@selector(onSwitchChanged:) forControlEvents:UIControlEventValueChanged];
@@ -190,20 +191,20 @@
     
     // ---- 本地服务器开关 ----
     CGFloat ly = iy + 60;
-    UILabel *localL = [self makeLabel:@"🏠 优先本地服务器" x:15 y:ly w:160 h:28 font:[UIFont systemFontOfSize:12]];
+    UILabel *localL = [self makeLabel:@"🏠 本地任务服务器" x:15 y:ly w:160 h:28 font:[UIFont systemFontOfSize:12]];
     [self.panelView addSubview:localL];
     self.localSwitch = [self makeSwitchAt:CGPointMake(pw-70, ly)];
     [self.localSwitch addTarget:self action:@selector(onLocalSwitchChanged:) forControlEvents:UIControlEventValueChanged];
     [self.panelView addSubview:self.localSwitch];
     
-    // ---- API Key ----
-    CGFloat ay = ly + 34;
-    self.apiKeyField = [self makeTextFieldAt:CGRectMake(15, ay, pw-30, 30) placeholder:@"API Key(本地模式无需填写)"];
-    self.apiKeyField.font = [UIFont systemFontOfSize:10];
-    [self.panelView addSubview:self.apiKeyField];
+    // ---- 状态提示 ----
+    CGFloat sty = ly + 32;
+    UILabel *hintL = [self makeLabel:@"✅ CH1/CH2走daemon :12933 | CH3直连抖音" x:15 y:sty w:pw-30 h:20 font:[UIFont systemFontOfSize:9]];
+    hintL.textColor = [UIColor colorWithWhite:0.5 alpha:1.0];
+    [self.panelView addSubview:hintL];
     
     // ---- 按钮 ----
-    CGFloat by = ay + 38;
+    CGFloat by = sty + 24;
     self.configBtn = [UIButton buttonWithType:UIButtonTypeSystem];
     self.configBtn.frame = CGRectMake(15, by, (pw-40)/2, 32);
     [self.configBtn setTitle:@"保存配置" forState:UIControlStateNormal];
@@ -234,7 +235,7 @@
 }
 
 - (void)addSwitchLabel:(NSString *)text x:(CGFloat)x y:(CGFloat)y pw:(CGFloat)pw {
-    UILabel *lbl = [self makeLabel:text x:x y:y w:pw-80 h:32 font:[UIFont systemFontOfSize:12]];
+    UILabel *lbl = [self makeLabel:text x:x y:y w:pw-80 h:32 font:[UIFont systemFontOfSize:11]];
     [self.panelView addSubview:lbl];
 }
 
@@ -270,7 +271,11 @@
     self.localSwitch.on = gm.useLocalServer;
     self.minIntervalField.text = [NSString stringWithFormat:@"%ld", (long)gm.minInterval];
     self.maxIntervalField.text = [NSString stringWithFormat:@"%ld", (long)gm.maxInterval];
-    self.apiKeyField.text = gm.apiKey ?: @"";
+    
+    if (gm.isRunning) {
+        [self.startStopBtn setTitle:@"■ 停止任务" forState:UIControlStateNormal];
+        self.startStopBtn.backgroundColor = [UIColor colorWithRed:0.8 green:0.2 blue:0.2 alpha:1.0];
+    }
     [self updateStats];
 }
 
@@ -286,7 +291,6 @@
         self.startStopBtn.backgroundColor = [UIColor colorWithRed:0.2 green:0.7 blue:0.3 alpha:1.0];
     } else {
         [self saveCurrentConfig];
-        [[NSClassFromString(@"XMOperationEngine") sharedInstance] fetchCurrentUserInfo];
         [gm startAllTasks];
         [self.startStopBtn setTitle:@"■ 停止任务" forState:UIControlStateNormal];
         self.startStopBtn.backgroundColor = [UIColor colorWithRed:0.8 green:0.2 blue:0.2 alpha:1.0];
@@ -320,7 +324,6 @@
 
 - (void)saveCurrentConfig {
     XMGlobalManager *gm = [XMGlobalManager sharedInstance];
-    gm.apiKey = self.apiKeyField.text;
     gm.followCh1Enabled = self.ch1Switch.isOn;
     gm.followCh2Enabled = self.ch2Switch.isOn;
     gm.followCh3Enabled = self.ch3Switch.isOn;
@@ -330,19 +333,21 @@
     if (gm.minInterval < 1) gm.minInterval = 1;
     if (gm.maxInterval < gm.minInterval) gm.maxInterval = gm.minInterval;
     [gm saveConfig];
-    NSLog(@"[熊猫] 配置已保存: CH1=%d CH2=%d CH3=%d 间隔=%ld-%lds",
-          gm.followCh1Enabled, gm.followCh2Enabled, gm.followCh3Enabled,
+    NSLog(@"[熊猫] 配置已保存: CH1=%d CH2=%d CH3=%d digg=%d 间隔=%ld-%lds",
+          gm.followCh1Enabled, gm.followCh2Enabled, gm.followCh3Enabled, gm.diggEnabled,
           (long)gm.minInterval, (long)gm.maxInterval);
 }
 
 - (void)updateStats {
-    XMOperationEngine *e = [NSClassFromString(@"XMOperationEngine") sharedInstance];
     self.statsLabel.text = [NSString stringWithFormat:
-        @"总:%ld 关注:%ld 点赞:%ld | 收藏:%ld 分享:%ld 评论:%ld 播放:%ld",
-        (long)e.totalTaskCount, (long)e.followSuccessCount, (long)e.diggSuccessCount,
-        (long)e.collectSuccessCount, (long)e.shareSuccessCount,
-        (long)e.commentSuccessCount, (long)e.playSuccessCount];
+        @"关注: %ld/%ld | CH1:daemon CH2:daemon CH3:直连",
+        (long)self.followSuccess, (long)self.followTotal];
 }
+
+#pragma mark - 统计更新
+
+- (void)incrementFollowOK { self.followSuccess++; self.followTotal++; }
+- (void)incrementFollowFail { self.followTotal++; }
 
 - (void)show { self.hidden = NO; }
 - (void)hide { self.hidden = YES; }

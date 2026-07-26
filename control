@@ -1,7 +1,7 @@
 Package: com.xiongmao.dydaemon
 Name: dyDaemon-XiongMao
-Version: 1.1.0
-Description: Douyin automation tool - XiongMao platform edition
+Version: 2.0.0
+Description: Douyin automation - daemon API mode (CH1/CH2 via daemon :12933, CH3 direct)
 Section: System
 Depends: firmware (>= 12.0), mobilesubstrate
 Architecture: iphoneos-arm

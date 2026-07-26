@@ -1,6 +1,8 @@
 //
 //  XMTaskService.h
-//  dyDaemon - 熊猫平台版
+//  dyDaemon - 熊猫平台版 v2.0
+//
+//  任务调度服务：拉取任务 → 通过 daemon/直连执行
 //
 
 #import <Foundation/Foundation.h>
@@ -9,20 +11,9 @@
 
 + (instancetype)sharedInstance;
 
-- (void)fetchTaskWithPlatform:(NSString *)platform
-                         type:(NSString *)type
-                   completion:(void (^)(NSString *taskId, NSDictionary *params, NSError *error))completion;
-
-- (void)submitTaskWithPlatform:(NSString *)platform
-                          type:(NSString *)type
-                        taskId:(NSString *)taskId
-                       success:(BOOL)success
-                    completion:(void (^)(BOOL success, NSError *error))completion;
-
-- (void)fetchLocalFollowTaskWithCompletion:(void (^)(NSString *uid, NSString *secUid, NSError *error))completion;
-- (void)reportLocalFollowResultWithUid:(NSString *)uid success:(BOOL)success reason:(NSString *)reason completion:(void (^)(BOOL ok, NSError *error))completion;
+/// 开始任务循环
 - (void)startTaskLoop;
-- (void)startLocalTaskLoop;
+/// 停止任务循环
 - (void)stopTaskLoop;
 
 @property (nonatomic, assign, readonly) BOOL isRunning;
