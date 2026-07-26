@@ -5,6 +5,7 @@
 
 #import "XMTaskService.h"
 #import "XMGlobalManager.h"
+#import <objc/message.h>
 
 @interface XMTaskService ()
 @property (nonatomic, strong) NSTimer *taskTimer;
@@ -45,7 +46,7 @@
         if (completion) completion(nil, nil, [NSError errorWithDomain:@"XMTaskService" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"配置不完整"}]);
         return;
     }
-    NSString *urlStr = [NSString stringWithFormat:@"%@/studio/api/task/get?key=***&platform=%@&type=%@&uid=%@&sec_uid=%@",
+    NSString *urlStr = [NSString stringWithFormat:@"%@/studio/api/task/get?key=%@&platform=%@&type=%@&uid=%@&sec_uid=%@",
                         gm.baseURL, gm.apiKey, platform, type, gm.currentUid, gm.currentSecUid];
     NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]]];
     if (!url) { if (completion) completion(nil, nil, [NSError errorWithDomain:@"XMTaskService" code:-2 userInfo:@{NSLocalizedDescriptionKey: @"URL格式错误"}]); return; }
@@ -66,7 +67,7 @@
 
 - (void)submitTaskWithPlatform:(NSString *)platform type:(NSString *)type taskId:(NSString *)taskId success:(BOOL)success completion:(void (^)(BOOL, NSError *))completion {
     XMGlobalManager *gm = [XMGlobalManager sharedInstance];
-    NSString *urlStr = [NSString stringWithFormat:@"%@/studio/api/task/submit?platform=%@&type=%@&studiotask_id=%@&key=***&result=%@",
+    NSString *urlStr = [NSString stringWithFormat:@"%@/studio/api/task/submit?platform=%@&type=%@&studiotask_id=%@&key=%@&result=%@",
                         gm.baseURL, platform, type, taskId, gm.apiKey, success ? @"true" : @"false"];
     NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]]];
     if (!url) { if (completion) completion(NO, [NSError errorWithDomain:@"XMTaskService" code:-2 userInfo:@{NSLocalizedDescriptionKey: @"URL格式错误"}]); return; }
