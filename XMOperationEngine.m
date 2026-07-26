@@ -174,7 +174,8 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
             else if ([type isEqualToString:@"bf"]) strongSelf.playSuccessCount++;
         }
         
-        // 提交任务结果到熊猫平�?        Class taskService = NSClassFromString(@"XMTaskService");
+        // 提交任务结果到熊猫平台
+        Class taskService = NSClassFromString(@"XMTaskService");
         if (taskService && [taskService respondsToSelector:@selector(sharedInstance)]) {
             id service = [taskService sharedInstance];
             if ([service respondsToSelector:@selector(submitTaskWithPlatform:type:taskId:success:completion:)]) {
@@ -409,7 +410,8 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
 - (void)shareAweme:(NSString *)awemeId completion:(void (^)(BOOL, NSError *))completion {
     NSLog(@"[熊猫] 执行分享(模拟上报): aweme_id=%@", awemeId);
     
-    // 分享操作实际是上报分享统�?    NSMutableDictionary *params = [NSMutableDictionary dictionary];
+    // 分享操作实际是上报分享统计
+    NSMutableDictionary *params = [NSMutableDictionary dictionary];
     params[@"aweme_id"] = awemeId;
     params[@"item_id"] = awemeId;
     params[@"share_type"] = @"0";
@@ -514,7 +516,7 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
             if (completion) completion(json, nil);
         } else {
-            if (completion) completion(nil, [NSError errorWithDomain:@"XMOperation" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"无返回数�?}]);
+            if (completion) completion(nil, [NSError errorWithDomain:@"XMOperation" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"无返回数据"}]);
         }
     }];
     [task resume];
