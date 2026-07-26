@@ -42,14 +42,21 @@ static NSString * const kXMConfigFileName = @"xiongmao_config.plist";
 - (void)startAllTasks {
     if (self.isRunning) return;
     
-    if (!self.apiKey || self.apiKey.length == 0) {
-        NSLog(@"[熊猫] 错误: 未设置 API Key");
-        return;
-    }
-    
-    if (!self.currentUid || !self.currentSecUid) {
-        NSLog(@"[熊猫] 错误: 未获取到当前账号信息");
-        return;
+    // Local server mode: only check localApiKey, not apiKey
+    if (self.useLocalServer) {
+        if (!self.localApiKey || self.localApiKey.length == 0) {
+            NSLog(@"[xm] Error: localApiKey not set");
+            return;
+        }
+    } else {
+        if (!self.apiKey || self.apiKey.length == 0) {
+            NSLog(@"[xm] Error: apiKey not set");
+            return;
+        }
+        if (!self.currentUid || !self.currentSecUid) {
+            NSLog(@"[xm] Error: account info not available");
+            return;
+        }
     }
     
     self.isRunning = YES;
