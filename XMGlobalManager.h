@@ -7,6 +7,8 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @class UIViewController;
 
 #define XM_VERSION @"2.0.0"
@@ -54,3 +56,5 @@
 - (void)loadConfig;
 
 @end
+
+NS_ASSUME_NONNULL_END
