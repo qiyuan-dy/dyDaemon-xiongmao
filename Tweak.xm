@@ -32,6 +32,9 @@
 // 初始化构造器
 // ============================================================================
 
+// 前置声明
+static void updateCurrentUserInfo(void);
+
 static void __attribute__((constructor)) initialize() {
     NSLog(@"[熊猫] dyDaemon 熊猫平台版 已加载");
     NSLog(@"[熊猫] 版本: 1.0.0");
