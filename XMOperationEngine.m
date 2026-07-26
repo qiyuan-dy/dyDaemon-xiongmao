@@ -261,13 +261,13 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
 - (void)fetchCurrentUserInfo {
     NSLog(@"[熊猫] 获取当前用户信息...");
     
-    // 方式1: �?AWEUserManager 获取
+    // 方式1: �?AWEUserManager 获取
     Class userManager = NSClassFromString(@"AWEUserManager");
     if (userManager && [userManager respondsToSelector:@selector(sharedManager)]) {
-        id manager = [userManager sharedManager];
+        id manager = ((id (*)(id, SEL))objc_msgSend)(userManager, @selector(sharedManager));
         
         if ([manager respondsToSelector:@selector(currentUserID)]) {
-            NSString *uid = [manager currentUserID];
+            NSString *uid = ((NSString *(*)(id, SEL))objc_msgSend)(manager, @selector(currentUserID));
             if (uid) {
                 [XMGlobalManager sharedInstance].currentUid = uid;
                 NSLog(@"[熊猫] UID: %@", uid);
@@ -275,7 +275,7 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
         }
         
         if ([manager respondsToSelector:@selector(currentSecUserID)]) {
-            NSString *secUid = [manager currentSecUserID];
+            NSString *secUid = ((NSString *(*)(id, SEL))objc_msgSend)(manager, @selector(currentSecUserID));
             if (secUid) {
                 [XMGlobalManager sharedInstance].currentSecUid = secUid;
                 NSLog(@"[熊猫] SecUID: %@", secUid);
@@ -283,13 +283,13 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
         }
     }
     
-    // 方式2: �?TTAccount 获取
+    // 方式2: �?TTAccount 获取
     if (![XMGlobalManager sharedInstance].currentUid) {
         Class ttAccount = NSClassFromString(@"TTAccount");
         if (ttAccount && [ttAccount respondsToSelector:@selector(sharedAccount)]) {
-            id account = [ttAccount sharedAccount];
+            id account = ((id (*)(id, SEL))objc_msgSend)(ttAccount, @selector(sharedAccount));
             if ([account respondsToSelector:@selector(userID)]) {
-                NSString *uid = [account userID];
+                NSString *uid = ((NSString *(*)(id, SEL))objc_msgSend)(account, @selector(userID));
                 if (uid) {
                     [XMGlobalManager sharedInstance].currentUid = uid;
                     NSLog(@"[熊猫] UID(TTAccount): %@", uid);
