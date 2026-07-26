@@ -8,6 +8,7 @@
 
 #import "XMOperationEngine.h"
 #import "XMGlobalManager.h"
+#import "XMTaskService.h"
 #import "XMNetworkDetector.h"
 
 // ============================================================================
