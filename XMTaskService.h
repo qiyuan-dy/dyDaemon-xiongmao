@@ -42,6 +42,9 @@
 /// 启动任务循环
 - (void)startTaskLoop;
 
+/// 启动本地任务循环（内部使用）
+- (void)startLocalTaskLoop;
+
 /// 停止任务循环
 - (void)stopTaskLoop;
 

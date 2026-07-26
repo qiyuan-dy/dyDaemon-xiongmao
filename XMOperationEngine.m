@@ -1,15 +1,17 @@
 //
 //  XMOperationEngine.m
-//  dyDaemon - 熊猫平台版
-//
-//  抖音操作引擎实现（高级版）
-//  方案：调用抖音内部 AWENetworkService 发请求，自动携带签名
+//  dyDaemon - 熊猫平台�?//
+//  抖音操作引擎实现（高级版�?//  方案：调用抖音内�?AWENetworkService 发请求，自动携带签名
 //
 
 #import "XMOperationEngine.h"
 #import "XMGlobalManager.h"
 #import "XMTaskService.h"
 #import "XMNetworkDetector.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundeclared-selector"
+#pragma clang diagnostic ignored "-Wobjc-method-access"
 
 // ============================================================================
 // 抖音 API 接口地址（App 端）
@@ -172,8 +174,7 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
             else if ([type isEqualToString:@"bf"]) strongSelf.playSuccessCount++;
         }
         
-        // 提交任务结果到熊猫平台
-        Class taskService = NSClassFromString(@"XMTaskService");
+        // 提交任务结果到熊猫平�?        Class taskService = NSClassFromString(@"XMTaskService");
         if (taskService && [taskService respondsToSelector:@selector(sharedInstance)]) {
             id service = [taskService sharedInstance];
             if ([service respondsToSelector:@selector(submitTaskWithPlatform:type:taskId:success:completion:)]) {
@@ -259,7 +260,7 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
 - (void)fetchCurrentUserInfo {
     NSLog(@"[熊猫] 获取当前用户信息...");
     
-    // 方式1: 从 AWEUserManager 获取
+    // 方式1: �?AWEUserManager 获取
     Class userManager = NSClassFromString(@"AWEUserManager");
     if (userManager && [userManager respondsToSelector:@selector(sharedManager)]) {
         id manager = [userManager sharedManager];
@@ -281,7 +282,7 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
         }
     }
     
-    // 方式2: 从 TTAccount 获取
+    // 方式2: �?TTAccount 获取
     if (![XMGlobalManager sharedInstance].currentUid) {
         Class ttAccount = NSClassFromString(@"TTAccount");
         if (ttAccount && [ttAccount respondsToSelector:@selector(sharedAccount)]) {
@@ -334,7 +335,7 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
 }
 
 #pragma mark - 关注
-// 最新接口参数:
+// 最新接口参�?
 // user_id / sec_uid: 用户ID
 // type: 1(关注) 0(取消关注)
 // from: 来源标识
@@ -372,7 +373,7 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
 }
 
 #pragma mark - 收藏
-// 最新接口参数:
+// 最新接口参�?
 // aweme_id / item_id: 视频ID
 // collects_flag: 1(收藏) 0(取消收藏)
 
@@ -408,14 +409,13 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
 - (void)shareAweme:(NSString *)awemeId completion:(void (^)(BOOL, NSError *))completion {
     NSLog(@"[熊猫] 执行分享(模拟上报): aweme_id=%@", awemeId);
     
-    // 分享操作实际是上报分享统计
-    NSMutableDictionary *params = [NSMutableDictionary dictionary];
+    // 分享操作实际是上报分享统�?    NSMutableDictionary *params = [NSMutableDictionary dictionary];
     params[@"aweme_id"] = awemeId;
     params[@"item_id"] = awemeId;
     params[@"share_type"] = @"0";
     params[@"platform"] = @"0";
     
-    // 用 stats 接口模拟分享上报
+    // �?stats 接口模拟分享上报
     [self sendAwemeRequestWithPath:kAwemeStatsPath params:params completion:^(NSDictionary *response, NSError *error) {
         BOOL success = (error == nil);
         NSLog(@"[熊猫] 分享上报结果: %@", success ? @"成功" : @"失败");
@@ -514,10 +514,12 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
             if (completion) completion(json, nil);
         } else {
-            if (completion) completion(nil, [NSError errorWithDomain:@"XMOperation" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"无返回数据"}]);
+            if (completion) completion(nil, [NSError errorWithDomain:@"XMOperation" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"无返回数�?}]);
         }
     }];
     [task resume];
 }
+
+#pragma clang diagnostic pop
 
 @end

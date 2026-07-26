@@ -17,6 +17,10 @@
 // 抖音关键类声明（Hook 用）
 // ============================================================================
 
+@class AppDelegate;
+@class AWETabBarController;
+@class AWEDetailViewController;
+
 @interface AWEUserManager : NSObject
 + (instancetype)sharedManager;
 - (NSString *)currentUserID;
