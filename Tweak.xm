@@ -53,7 +53,7 @@ static void __attribute__((constructor)) initialize() {
         [[XMFloatingView sharedView] show];
         
         // 尝试获取当前用户信息
-        [self updateCurrentUserInfo];
+        updateCurrentUserInfo();
         
         NSLog(@"[熊猫] 初始化完成");
     });
