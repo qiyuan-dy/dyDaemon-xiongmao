@@ -136,7 +136,7 @@
         completion:(void(^)(BOOL ok, NSString *reason))completion {
     
     switch (channel) {
-        case 1: // daemon followUser3
+        case 1: { // daemon followUser3
             [[XMDaemonClient sharedClient] followUserCh1:uid secUid:secUid completion:^(BOOL ok, NSDictionary *result, NSString *error) {
                 if (completion) {
                     NSString *code = result[@"code"] ?: result[@"status_code"];
@@ -145,8 +145,8 @@
                 }
             }];
             break;
-            
-        case 2: // daemon followUserByLive2
+        }
+        case 2: { // daemon followUserByLive2
             [[XMDaemonClient sharedClient] followUserCh2:uid secUid:secUid completion:^(BOOL ok, NSDictionary *result, NSString *error) {
                 if (completion) {
                     NSString *code = result[@"code"] ?: result[@"status_code"];
@@ -155,11 +155,11 @@
                 }
             }];
             break;
-            
-        case 3: // 直连抖音标准 API
+        }
+        case 3: { // 直连抖音标准 API
             [self followUserDirect:uid secUid:secUid completion:completion];
             break;
-            
+        }
         default:
             if (completion) completion(NO, @"no-channel");
             break;
