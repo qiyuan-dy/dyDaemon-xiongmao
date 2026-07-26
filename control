@@ -1,7 +1,7 @@
-Package: com.xiongmao.dyDaemon
-Name: dyDaemon-熊猫
+Package: com.xiongmao.dydaemon
+Name: dyDaemon-XiongMao
 Version: 1.0.0
-Description: 抖音自动化助手 - 熊猫平台版
+Description: Douyin automation tool - XiongMao platform edition
 Section: System
 Depends: firmware (>= 12.0), mobilesubstrate
 Architecture: iphoneos-arm
