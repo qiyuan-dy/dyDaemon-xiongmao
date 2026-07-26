@@ -1,0 +1,5 @@
+# Ensure LF line endings for shell scripts and build files
+*.sh text eol=lf
+Makefile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

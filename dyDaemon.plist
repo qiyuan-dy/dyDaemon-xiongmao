@@ -1,0 +1,8 @@
+{ Filter = { Bundles = (
+    "com.ss.iphone.ugc.Aweme",
+    "com.ss.iphone.ugc.aweme.mobile",
+    "com.ss.iphone.ugc.aweme.lite",
+    "com.ss.iphone.ugc.Live",
+    "com.ss.iphone.article.Video",
+    "com.ss.iphone.ugc.sicily",
+); }; }

@@ -1,0 +1,67 @@
+name: Build dyDaemon DEB
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:  # 手动触发
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Theos
+        run: |
+          if [ ! -d "$HOME/theos" ]; then
+            git clone --recursive https://github.com/theos/theos.git $HOME/theos --depth 1
+          fi
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+
+      - name: Check SDK
+        run: |
+          echo "=== Xcode 版本 ==="
+          xcodebuild -version
+          echo "=== 可用 SDK ==="
+          ls $HOME/theos/sdks/ 2>/dev/null || echo "需要下载 SDK"
+          # 如果没有 SDK，从 Xcode 创建软链接
+          if [ ! -d "$HOME/theos/sdks" ] || [ -z "$(ls -A $HOME/theos/sdks/ 2>/dev/null)" ]; then
+            echo "从 Xcode 链接 SDK..."
+            mkdir -p $HOME/theos/sdks
+            SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+            SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
+            ln -sf "$SDK_PATH" "$HOME/theos/sdks/iPhoneOS${SDK_VERSION}.sdk"
+            echo "SDK 链接完成: iPhoneOS${SDK_VERSION}.sdk"
+          fi
+          ls -la $HOME/theos/sdks/
+
+      - name: Build
+        run: |
+          cd $GITHUB_WORKSPACE
+          echo "=== 开始编译 ==="
+          make clean
+          make package FINALPACKAGE=1
+          echo "=== 编译完成 ==="
+
+      - name: List output
+        run: |
+          echo "=== 生成的文件 ==="
+          find . -name "*.deb" -type f 2>/dev/null
+          ls -la *.deb 2>/dev/null || echo "未找到 deb 文件"
+          ls -la packages/ 2>/dev/null || true
+
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dyDaemon-xiongmao-deb
+          path: "*.deb"
+          if-no-files-found: warn
+
+      - name: Upload packages dir
+        uses: actions/upload-artifact@v4
+        with:
+          name: dyDaemon-packages
+          path: "packages/"
+          if-no-files-found: warn
