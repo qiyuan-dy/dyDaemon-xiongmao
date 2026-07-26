@@ -1,13 +1,14 @@
 //
 //  XMOperationEngine.m
-//  dyDaemon - 熊猫平台�?//
-//  抖音操作引擎实现（高级版�?//  方案：调用抖音内�?AWENetworkService 发请求，自动携带签名
+//  dyDaemon - 熊猫平台�?//
+//  抖音操作引擎实现（高级版�?//  方案：调用抖音内�?AWENetworkService 发请求，自动携带签名
 //
 
 #import "XMOperationEngine.h"
 #import "XMGlobalManager.h"
 #import "XMTaskService.h"
 #import "XMNetworkDetector.h"
+#import <objc/message.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wundeclared-selector"
@@ -336,7 +337,7 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
 }
 
 #pragma mark - 关注
-// 最新接口参�?
+// 最新接口参�?
 // user_id / sec_uid: 用户ID
 // type: 1(关注) 0(取消关注)
 // from: 来源标识
@@ -374,7 +375,7 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
 }
 
 #pragma mark - 收藏
-// 最新接口参�?
+// 最新接口参�?
 // aweme_id / item_id: 视频ID
 // collects_flag: 1(收藏) 0(取消收藏)
 
@@ -417,7 +418,7 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
     params[@"share_type"] = @"0";
     params[@"platform"] = @"0";
     
-    // �?stats 接口模拟分享上报
+    // �?stats 接口模拟分享上报
     [self sendAwemeRequestWithPath:kAwemeStatsPath params:params completion:^(NSDictionary *response, NSError *error) {
         BOOL success = (error == nil);
         NSLog(@"[熊猫] 分享上报结果: %@", success ? @"成功" : @"失败");
