@@ -55,14 +55,14 @@ jobs:
         run: |
           echo "=== 生成的文件 ==="
           find . -name "*.deb" -type f 2>/dev/null
-          ls -la *.deb 2>/dev/null || echo "未找到 deb 文件"
+          ls -la packages/*.deb 2>/dev/null || echo "未找到 deb 文件"
           ls -la packages/ 2>/dev/null || true
 
       - name: Upload DEB artifact
         uses: actions/upload-artifact@v4
         with:
           name: dyDaemon-xiongmao-deb
-          path: "*.deb"
+          path: "packages/*.deb"
           if-no-files-found: warn
 
       - name: Upload packages dir
