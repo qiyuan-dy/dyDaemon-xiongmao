@@ -408,7 +408,7 @@
     UIToolbar *tb = [[UIToolbar alloc] initWithFrame:CGRectMake(0,0,320,44)];
     tb.barStyle = UIBarStyleBlack;
     UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
-    UIBarButtonItem *done = [[UIBarButtonItem alloc] initWithTitle:@'完成' style:UIBarButtonItemStyleDone target:self action:@selector(dismissKeyboard)];
+    UIBarButtonItem *done = [[UIBarButtonItem alloc] initWithTitle:@\"完成\" style:UIBarButtonItemStyleDone target:self action:@selector(dismissKeyboard)];
     tb.items = @[flex, done];
     tf.inputAccessoryView = tb;
     
@@ -447,7 +447,7 @@
     UIToolbar *tb = [[UIToolbar alloc] initWithFrame:CGRectMake(0,0,320,44)];
     tb.barStyle = UIBarStyleBlack;
     UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
-    UIBarButtonItem *done = [[UIBarButtonItem alloc] initWithTitle:@'完成' style:UIBarButtonItemStyleDone target:self action:@selector(dismissKeyboard)];
+    UIBarButtonItem *done = [[UIBarButtonItem alloc] initWithTitle:@\"完成\" style:UIBarButtonItemStyleDone target:self action:@selector(dismissKeyboard)];
     tb.items = @[flex, done];
     tf.inputAccessoryView = tb;
     *tfPtr = tf;
@@ -474,8 +474,7 @@
     [[XMLogWindow sharedWindow] show];
 }
 
-- (void)
-    [self dismissKeyboard];
+- (void)hidePanel {`n    [self dismissKeyboard];
     self.panelView.hidden = YES;
     self.isPanelShowing = NO;
     [[XMLogWindow sharedWindow] hide];
