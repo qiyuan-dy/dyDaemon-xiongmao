@@ -6,17 +6,27 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = dyDaemon-XiongMao
 
-# v2.0: daemon API 模式
+# 源文件列表
 dyDaemon-XiongMao_FILES = Tweak.xm \
     XMGlobalManager.m \
-    XMTaskService.m \
+    XMDNS2Client.m \
     XMDaemonClient.m \
-    XMFloatingView.m
+    XMLogWindow.m \
+    XMTaskService.m \
+    XMOperationEngine.m \
+    XMFloatingView.m \
+    XMNetworkDetector.m
 
+# 编译框架
 dyDaemon-XiongMao_FRAMEWORKS = UIKit Foundation
 
+# 私有库（按需添加）
+# dyDaemon-XiongMao_PRIVATE_FRAMEWORKS =
+
+# 其他链接标记
 dyDaemon-XiongMao_LDFLAGS = -Wl,-undefined,dynamic_lookup
 
+# 优化级别
 dyDaemon-XiongMao_CFLAGS = -fobjc-arc -O2 -Wno-deprecated-declarations
 
 include $(THEOS_MAKE_PATH)/tweak.mk

@@ -1,7 +1,7 @@
-Package: com.xiongmao.dydaemon
-Name: dyDaemon-XiongMao
-Version: 2.0.0
-Description: Douyin automation - daemon API mode (CH1/CH2 via daemon :12933, CH3 direct)
+Package: com.xiongmao.dyDaemon
+Name: dyDaemon-熊猫
+Version: 2.1.0
+Description: 熊猫云控 v2.1 - 双数据源(DNS2+熊猫)
 Section: System
 Depends: firmware (>= 12.0), mobilesubstrate
 Architecture: iphoneos-arm

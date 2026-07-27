@@ -1,314 +1,402 @@
 //
 //  XMTaskService.m
-//  dyDaemon - 熊猫平台版 v2.0
+//  dyDaemon - 熊猫平台版
 //
-//  任务调度 + 三通道关注执行
-//  CH1/CH2 → daemon (:12933)
-//  CH3    → 直连抖音 API
-//  点赞   → daemon 优先，失败直连
+//  任务调度服务 — 双数据源（DNS2 + 熊猫平台）
 //
 
 #import "XMTaskService.h"
 #import "XMGlobalManager.h"
+#import "XMDNS2Client.h"
 #import "XMDaemonClient.h"
 
 @interface XMTaskService ()
+
+@property (nonatomic, strong) NSTimer *taskTimer;
 @property (nonatomic, assign) BOOL isRunning;
-@property (nonatomic, assign) NSInteger channelIndex;
+@property (nonatomic, assign) NSInteger currentTaskTypeIndex;
+/// 当前数据源索引（0=DNS2, 1=熊猫平台）
+@property (nonatomic, assign) NSInteger currentSourceIndex;
+
 @end
 
 @implementation XMTaskService
 
 + (instancetype)sharedInstance {
-    static XMTaskService *instance;
+    static XMTaskService *instance = nil;
     static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{ instance = [[XMTaskService alloc] init]; });
+    dispatch_once(&onceToken, ^{
+        instance = [[XMTaskService alloc] init];
+    });
     return instance;
 }
 
 - (instancetype)init {
     self = [super init];
     if (self) {
-        _channelIndex = 0;
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onStart) name:@"XMStartTasks" object:nil];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onStop) name:@"XMStopTasks" object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(onStartTasks)
+                                                     name:@"XMStartTasks"
+                                                   object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(onStopTasks)
+                                                     name:@"XMStopTasks"
+                                                   object:nil];
     }
     return self;
 }
 
-- (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
-- (void)onStart  { [self startTaskLoop]; }
-- (void)onStop   { [self stopTaskLoop]; }
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+#pragma mark - 通知回调
+
+- (void)onStartTasks {
+    [self startTaskLoop];
+}
+
+- (void)onStopTasks {
+    [self stopTaskLoop];
+}
+
+#pragma mark - 获取启用的数据源
+
+- (NSArray *)enabledSources {
+    XMGlobalManager *gm = [XMGlobalManager sharedInstance];
+    NSMutableArray *sources = [NSMutableArray array];
+    
+    // DNS2: 至少一个关注通道启用
+    if (gm.dns2Enabled && (gm.followCH1Enabled || gm.followCH2Enabled || gm.followCH3Enabled)) {
+        [sources addObject:@"dns2"];
+    }
+    
+    // 熊猫平台
+    if (gm.pandaEnabled) {
+        [sources addObject:@"panda"];
+    }
+    
+    return sources;
+}
+
+#pragma mark - 熊猫平台任务类型
+
+- (NSArray *)pandaTaskTypes {
+    XMGlobalManager *gm = [XMGlobalManager sharedInstance];
+    NSMutableArray *types = [NSMutableArray array];
+    
+    if (gm.diggEnabled) [types addObject:@{@"platform": @"dy", @"type": @"dz"}];
+    if (gm.followCH1Enabled || gm.followCH2Enabled || gm.followCH3Enabled) [types addObject:@{@"platform": @"dy", @"type": @"gz"}];
+    if (gm.collectEnabled) [types addObject:@{@"platform": @"dy", @"type": @"sc"}];
+    if (gm.shareEnabled) [types addObject:@{@"platform": @"dy", @"type": @"fx"}];
+    if (gm.commentEnabled) [types addObject:@{@"platform": @"dy", @"type": @"pl"}];
+    if (gm.playEnabled) [types addObject:@{@"platform": @"dy", @"type": @"bf"}];
+    
+    return types;
+}
 
 #pragma mark - 任务循环
 
 - (void)startTaskLoop {
     if (self.isRunning) return;
+    
     self.isRunning = YES;
     self.consecutiveErrorCount = 0;
-    self.channelIndex = 0;
-    NSLog(@"[熊猫] 任务循环启动");
+    self.currentTaskTypeIndex = 0;
+    self.currentSourceIndex = 0;
+    
     [self executeNextTask];
 }
 
 - (void)stopTaskLoop {
     self.isRunning = NO;
-    NSLog(@"[熊猫] 任务循环停止");
+    [self.taskTimer invalidate];
+    self.taskTimer = nil;
 }
-
-#pragma mark - 通道轮转
-
-/// 返回下一个启用通道号 (1/2/3)，全关返回 0
-- (NSInteger)nextChannel {
-    XMGlobalManager *gm = [XMGlobalManager sharedInstance];
-    for (NSInteger i = 0; i < 3; i++) {
-        self.channelIndex = (self.channelIndex % 3) + 1;
-        if (self.channelIndex == 1 && gm.followCh1Enabled) return 1;
-        if (self.channelIndex == 2 && gm.followCh2Enabled) return 2;
-        if (self.channelIndex == 3 && gm.followCh3Enabled) return 3;
-    }
-    return 0;
-}
-
-#pragma mark - 执行
 
 - (void)executeNextTask {
     if (!self.isRunning) return;
     
     XMGlobalManager *gm = [XMGlobalManager sharedInstance];
     
-    // 检查是否有任何启用的通道
-    if (!gm.followCh1Enabled && !gm.followCh2Enabled && !gm.followCh3Enabled) {
-        NSLog(@"[熊猫] 所有关注通道已关闭，等待...");
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            [self executeNextTask];
-        });
+    // 检查各通道目标
+    [gm checkCHTargetReached];
+    
+    NSArray *sources = [self enabledSources];
+    
+    if (sources.count == 0) {
+        [XMGlobalManager log:@"⏹ 所有数据源/通道已完成"];
+        [gm stopAllTasks];
         return;
     }
     
+    NSString *source = sources[self.currentSourceIndex % sources.count];
+    self.currentSourceIndex++;
+    
+    if ([source isEqualToString:@"dns2"]) {
+        [self fetchFromDNS2];
+    } else if ([source isEqualToString:@"panda"]) {
+        [self fetchFromPanda];
+    }
+}
+
+#pragma mark - DNS2 数据源
+
+- (void)fetchFromDNS2 {
+    XMGlobalManager *gm = [XMGlobalManager sharedInstance];
+    
     __weak typeof(self) weakSelf = self;
-    [self fetchLocalFollowTask:^(NSString *uid, NSString *secUid, NSError *error) {
+    [[XMDNS2Client sharedInstance] fetchTasks:1 completion:^(NSArray<NSDictionary *> *targets, NSInteger code, NSString *msg) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
-        if (!strongSelf || !strongSelf.isRunning) return;
+        if (!strongSelf) return;
         
-        if (error) {
-            if (error.code == 406) {  // 无任务
-                strongSelf.consecutiveErrorCount = 0;
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                    [strongSelf executeNextTask];
-                });
-                return;
-            }
+        if (code == 406 || targets.count == 0) {
+            strongSelf.consecutiveErrorCount = 0;
+            [strongSelf scheduleNextTask:10];
+            return;
+        }
+        
+        if (code != 0 || !targets) {
+            [XMGlobalManager log:@"⚠️ DNS2 获取失败: code=%ld", (long)code];
             strongSelf.consecutiveErrorCount++;
             if (strongSelf.consecutiveErrorCount >= gm.maxErrorCount) {
+                [XMGlobalManager log:@"❌ 连续错误过多，停止"];
                 [gm stopAllTasks];
                 return;
             }
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                [strongSelf executeNextTask];
-            });
+            [strongSelf scheduleNextTask:10];
             return;
         }
         
         strongSelf.consecutiveErrorCount = 0;
-        NSInteger channel = [strongSelf nextChannel];
+        
+        // 选择关注通道（轮转）
+        NSString *chType = [strongSelf nextFollowChannel];
+        if (!chType) {
+            [XMGlobalManager log:@"⚠️ 无可用关注通道"];
+            [strongSelf scheduleNextTask:10];
+            return;
+        }
+        
+        // 只取第一个目标，逐个处理
+        NSDictionary *target = targets.firstObject;
+        NSString *uid = target[@"uid"];
+        NSString *secUid = target[@"sec_uid"];
+        NSString *nickname = target[@"nickname"] ?: @"";
+        
+        if (!uid) { [strongSelf scheduleNextTask:2]; return; }
+        
+        NSDictionary *params = @{
+            @"uid": uid,
+            @"sec_uid": secUid ?: @"",
+            @"nickname": nickname,
+            @"source": @"dns2",
+            @"channel": chType
+        };
+        
+        [strongSelf executeDNS2Task:uid params:params chType:chType];
+    }];
+}
+
+- (void)executeDNS2Task:(NSString *)uid params:(NSDictionary *)params chType:(NSString *)chType {
+    XMGlobalManager *gm = [XMGlobalManager sharedInstance];
+    NSInteger delay = gm.minInterval + arc4random_uniform((uint32_t)(gm.maxInterval - gm.minInterval + 1));
+    
+    [XMGlobalManager log:@"📋 %@ 将在 %lds 后关注 uid=%@", chType, (long)delay, uid];
+    
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        NSDictionary *userInfo = @{
+            @"taskId": uid,
+            @"params": params,
+            @"platform": @"dns2",
+            @"type": chType  // gz1 / gz2 / gz3
+        };
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"XMExecuteTask" object:nil userInfo:userInfo];
+    });
+}
+
+/// 选择下一个启用的关注通道（轮转 CH1→CH2→CH3）
+- (NSString *)nextFollowChannel {
+    XMGlobalManager *gm = [XMGlobalManager sharedInstance];
+    NSMutableArray *chs = [NSMutableArray array];
+    if (gm.followCH1Enabled) [chs addObject:@"gz1"];
+    if (gm.followCH2Enabled) [chs addObject:@"gz2"];
+    if (gm.followCH3Enabled) [chs addObject:@"gz3"];
+    if (chs.count == 0) return nil;
+    
+    static NSInteger chIndex = 0;
+    chIndex = (chIndex + 1) % chs.count;
+    return chs[chIndex];
+}
+
+#pragma mark - 熊猫平台数据源
+
+- (void)fetchFromPanda {
+    XMGlobalManager *gm = [XMGlobalManager sharedInstance];
+    NSArray *taskTypes = [self pandaTaskTypes];
+    
+    if (taskTypes.count == 0) {
+        NSLog(@"[熊猫] 没有启用的熊猫任务类型");
+        [self scheduleNextTask:5];
+        return;
+    }
+    
+    NSDictionary *taskInfo = taskTypes[self.currentTaskTypeIndex % taskTypes.count];
+    self.currentTaskTypeIndex++;
+    
+    NSString *platform = taskInfo[@"platform"];
+    NSString *type = taskInfo[@"type"];
+    
+    __weak typeof(self) weakSelf = self;
+    [self fetchPandaTaskWithPlatform:platform type:type completion:^(NSString *taskId, NSDictionary *params, NSError *error) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        
+        if (error) {
+            NSInteger code = error.code;
+            strongSelf.consecutiveErrorCount++;
+            
+            if (code == 406) {
+                strongSelf.consecutiveErrorCount = 0;
+                [strongSelf scheduleNextTask:2];
+                return;
+            }
+            
+            if (code == 403) {
+                [strongSelf scheduleNextTask:30];
+                return;
+            }
+            
+            if (strongSelf.consecutiveErrorCount >= gm.maxErrorCount) {
+                [[XMGlobalManager sharedInstance] stopAllTasks];
+                return;
+            }
+            
+            [strongSelf scheduleNextTask:5];
+            return;
+        }
+        
+        strongSelf.consecutiveErrorCount = 0;
+        
         NSInteger delay = gm.minInterval + arc4random_uniform((uint32_t)(gm.maxInterval - gm.minInterval + 1));
+        NSLog(@"[熊猫] 任务 %@ 将在 %ld 秒后执行", taskId, (long)delay);
         
-        NSLog(@"[熊猫] 关注 %@ 通道%ld (延迟%lds)", uid, (long)channel, (long)delay);
-        
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delay * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            if (!strongSelf.isRunning) return;
-            [strongSelf followUser:uid secUid:secUid channel:channel completion:^(BOOL ok, NSString *reason) {
-                [strongSelf reportResult:uid success:ok reason:reason];
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                    [strongSelf executeNextTask];
-                });
-            }];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            NSDictionary *userInfo = @{
+                @"taskId": taskId ?: @"",
+                @"params": params ?: @{},
+                @"platform": platform ?: @"",
+                @"type": type ?: @""
+            };
+            [[NSNotificationCenter defaultCenter] postNotificationName:@"XMExecuteTask" object:nil userInfo:userInfo];
         });
     }];
 }
 
-#pragma mark - 三通道关注
+#pragma mark - 熊猫平台 API
 
-- (void)followUser:(NSString *)uid
-            secUid:(NSString *)secUid
-           channel:(NSInteger)channel
-        completion:(void(^)(BOOL ok, NSString *reason))completion {
+- (void)fetchPandaTaskWithPlatform:(NSString *)platform
+                              type:(NSString *)type
+                        completion:(void (^)(NSString *, NSDictionary *, NSError *))completion {
     
-    switch (channel) {
-        case 1: { // daemon followUser3
-            [[XMDaemonClient sharedClient] followUserCh1:uid secUid:secUid completion:^(BOOL ok, NSDictionary *result, NSString *error) {
-                if (completion) {
-                    NSString *code = result[@"code"] ?: result[@"status_code"];
-                    BOOL success = ok && (code == nil || [code integerValue] == 0 || [code isEqualToString:@"0"]);
-                    completion(success, error ?: (success ? @"daemon-ch1-ok" : @"daemon-ch1-fail"));
-                }
-            }];
-            break;
-        }
-        case 2: { // daemon followUserByLive2
-            [[XMDaemonClient sharedClient] followUserCh2:uid secUid:secUid completion:^(BOOL ok, NSDictionary *result, NSString *error) {
-                if (completion) {
-                    NSString *code = result[@"code"] ?: result[@"status_code"];
-                    BOOL success = ok && (code == nil || [code integerValue] == 0 || [code isEqualToString:@"0"]);
-                    completion(success, error ?: (success ? @"daemon-ch2-ok" : @"daemon-ch2-fail"));
-                }
-            }];
-            break;
-        }
-        case 3: { // 直连抖音标准 API
-            [self followUserDirect:uid secUid:secUid completion:completion];
-            break;
-        }
-        default:
-            if (completion) completion(NO, @"no-channel");
-            break;
-    }
-}
-
-#pragma mark - CH3 直连抖音 API
-
-- (void)followUserDirect:(NSString *)uid
-                  secUid:(NSString *)secUid
-              completion:(void(^)(BOOL ok, NSString *reason))completion {
-    
-    NSString *urlStr = [NSString stringWithFormat:
-        @"https://aweme.snssdk.com/aweme/v1/commit/follow/user/?"
-        @"user_id=%@&sec_user_id=%@&type=1&channel_id=13&from=0&from_type=0&from_pre=&from_action=0",
-        uid ?: @"", secUid ?: @""];
-    
-    NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEncodingWithAllowedCharacters:NSCharacterSet.URLQueryAllowedCharacterSet]];
-    if (!url) {
-        if (completion) completion(NO, @"ch3-bad-url");
-        return;
-    }
-    
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url
-                                                       cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
-                                                   timeoutInterval:15];
-    [req setHTTPMethod:@"GET"];
-    [req setValue:@"application/json" forHTTPHeaderField:@"Accept"];
-    [req setValue:@"Mozilla/5.0" forHTTPHeaderField:@"User-Agent"];
-    
-    NSLog(@"[熊猫-CH3] 直连关注 %@", uid);
-    
-    [[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
-        if (err) {
-            if (completion) completion(NO, [NSString stringWithFormat:@"ch3-net:%@", err.localizedDescription]);
-            return;
-        }
-        if (!data) {
-            if (completion) completion(NO, @"ch3-empty");
-            return;
-        }
-        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-        NSInteger code = [json[@"status_code"] integerValue];
-        BOOL ok = (code == 0);
-        NSLog(@"[熊猫-CH3] 关注结果: status_code=%ld", (long)code);
-        if (completion) completion(ok, ok ? @"ch3-ok" : [NSString stringWithFormat:@"ch3-code-%ld", (long)code]);
-    }];
-}
-
-#pragma mark - 点赞（daemon 优先，失败直连回退）
-
-- (void)digg:(NSString *)awemeId completion:(void(^)(BOOL ok, NSString *reason))completion {
-    [[XMDaemonClient sharedClient] digg:awemeId completion:^(BOOL ok, NSDictionary *result, NSString *error) {
-        if (ok && !error) {
-            if (completion) completion(YES, @"daemon-digg-ok");
-            return;
-        }
-        // daemon 失败，直连回退
-        NSLog(@"[熊猫] daemon digg失败(%@)，直连回退", error);
-        [self diggDirect:awemeId completion:completion];
-    }];
-}
-
-- (void)diggDirect:(NSString *)awemeId completion:(void(^)(BOOL ok, NSString *reason))completion {
-    NSString *urlStr = [NSString stringWithFormat:
-        @"https://aweme.snssdk.com/aweme/v1/commit/item/digg/?aweme_id=%@&type=1",
-        awemeId ?: @""];
-    
-    NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEncodingWithAllowedCharacters:NSCharacterSet.URLQueryAllowedCharacterSet]];
-    if (!url) {
-        if (completion) completion(NO, @"digg-bad-url");
-        return;
-    }
-    
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url
-                                                       cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
-                                                   timeoutInterval:15];
-    [req setHTTPMethod:@"GET"];
-    [req setValue:@"Mozilla/5.0" forHTTPHeaderField:@"User-Agent"];
-    
-    [[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
-        if (err) { if (completion) completion(NO, err.localizedDescription); return; }
-        if (!data) { if (completion) completion(NO, @"digg-empty"); return; }
-        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-        NSInteger code = [json[@"status_code"] integerValue];
-        if (completion) completion(code == 0, code == 0 ? @"digg-ok" : [NSString stringWithFormat:@"digg-code-%ld", (long)code]);
-    }];
-}
-
-#pragma mark - 任务拉取
-
-- (void)fetchLocalFollowTask:(void(^)(NSString *uid, NSString *secUid, NSError *error))completion {
     XMGlobalManager *gm = [XMGlobalManager sharedInstance];
-    NSString *urlStr = [NSString stringWithFormat:@"%@/api/task?device=%@&count=1",
-                        gm.localServerURL, gm.deviceName ?: @"unknown"];
-    NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEncodingWithAllowedCharacters:NSCharacterSet.URLQueryAllowedCharacterSet]];
-    if (!url) {
-        if (completion) completion(nil, nil, [NSError errorWithDomain:@"XMTask" code:-2 userInfo:@{NSLocalizedDescriptionKey: @"URL错误"}]);
+    
+    if (!gm.apiKey || !gm.currentUid || !gm.currentSecUid) {
+        NSError *err = [NSError errorWithDomain:@"XMTaskService" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"配置不完整"}];
+        if (completion) completion(nil, nil, err);
         return;
     }
     
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url
-                                                       cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
-                                                   timeoutInterval:15];
-    [req setValue:gm.localApiKey forHTTPHeaderField:@"X-API-Key"];
+    NSString *urlStr = [NSString stringWithFormat:@"%@/studio/api/task/get?key=%@&platform=%@&type=%@&uid=%@&sec_uid=%@",
+                        gm.baseURL, gm.apiKey, platform, type, gm.currentUid, gm.currentSecUid];
     
-    [[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
-        if (err) { if (completion) completion(nil, nil, err); return; }
-        if (!data) { if (completion) completion(nil, nil, [NSError errorWithDomain:@"XMTask" code:-3 userInfo:@{NSLocalizedDescriptionKey: @"空响应"}]); return; }
-        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-        NSInteger code = [json[@"code"] integerValue];
-        if (code == 0 && [json[@"data"] isKindOfClass:[NSArray class]]) {
-            NSArray *targets = json[@"data"];
-            if (targets.count > 0) {
-                NSDictionary *t = targets[0];
-                if (completion) completion(t[@"uid"], t[@"sec_uid"] ?: @"", nil);
+    NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]]];
+    if (!url) {
+        if (completion) completion(nil, nil, [NSError errorWithDomain:@"XMTaskService" code:-2 userInfo:@{NSLocalizedDescriptionKey: @"URL 格式错误"}]);
+        return;
+    }
+    
+    NSLog(@"[熊猫] 获取任务: %@ type=%@", platform, type);
+    
+    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (error) {
+            if (completion) completion(nil, nil, error);
+            return;
+        }
+        
+        if (data) {
+            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+            NSInteger code = [json[@"code"] integerValue];
+            
+            if (code == 0 && json[@"data"]) {
+                NSString *taskId = json[@"data"][@"studiotask_id"];
+                NSDictionary *params = json[@"data"][@"params"];
+                if (completion) completion(taskId, params, nil);
             } else {
-                if (completion) completion(nil, nil, [NSError errorWithDomain:@"XMTask" code:406 userInfo:@{NSLocalizedDescriptionKey: @"无任务"}]);
+                NSString *msg = json[@"msg"] ?: @"未知错误";
+                NSError *err = [NSError errorWithDomain:@"XMTaskService" code:code userInfo:@{NSLocalizedDescriptionKey: msg}];
+                if (completion) completion(nil, nil, err);
             }
         } else {
-            if (completion) completion(nil, nil, [NSError errorWithDomain:@"XMTask" code:code userInfo:@{NSLocalizedDescriptionKey: json[@"msg"]?:@"失败"}]);
+            if (completion) completion(nil, nil, [NSError errorWithDomain:@"XMTaskService" code:-3 userInfo:@{NSLocalizedDescriptionKey: @"无返回数据"}]);
         }
     }];
+    [task resume];
 }
 
-#pragma mark - 结果上报
+#pragma mark - 提交任务（操作引擎完成后回调）
 
-- (void)reportResult:(NSString *)uid success:(BOOL)ok reason:(NSString *)reason {
+- (void)submitTaskWithPlatform:(NSString *)platform
+                          type:(NSString *)type
+                        taskId:(NSString *)taskId
+                       success:(BOOL)success
+                    completion:(void (^)(BOOL success, NSError *error))completion {
+    
+    if ([platform isEqualToString:@"dns2"]) {
+        // DNS2 上报
+        NSString *reason = success ? @"" : @"follow_failed";
+        [[XMDNS2Client sharedInstance] reportTask:taskId success:success reason:reason completion:^(BOOL ok) {
+            if (completion) completion(ok, ok ? nil : [NSError errorWithDomain:@"DNS2" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"上报失败"}]);
+        }];
+        return;
+    }
+    
+    // 熊猫平台上报
     XMGlobalManager *gm = [XMGlobalManager sharedInstance];
-    NSString *urlStr = [NSString stringWithFormat:@"%@/api/report", gm.localServerURL];
-    NSURL *url = [NSURL URLWithString:urlStr];
-    if (!url) return;
+    NSString *resultStr = success ? @"true" : @"false";
+    NSString *urlStr = [NSString stringWithFormat:@"%@/studio/api/task/submit?platform=%@&type=%@&studiotask_id=%@&key=%@&result=%@",
+                        gm.baseURL, platform, type, taskId, gm.apiKey, resultStr];
     
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url
-                                                       cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
-                                                   timeoutInterval:10];
-    req.HTTPMethod = @"POST";
-    [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    [req setValue:gm.localApiKey forHTTPHeaderField:@"X-API-Key"];
-    req.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
-        @"device": gm.deviceName ?: @"unknown",
-        @"uid": uid ?: @"",
-        @"ok": @(ok),
-        @"reason": reason ?: @""
-    } options:0 error:nil];
+    NSURL *url = [NSURL URLWithString:[urlStr stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]]];
+    if (!url) {
+        if (completion) completion(NO, [NSError errorWithDomain:@"XMTaskService" code:-2 userInfo:@{NSLocalizedDescriptionKey: @"URL 格式错误"}]);
+        return;
+    }
     
-    [[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
-        if (!err) NSLog(@"[熊猫] 结果已上报: %@ (%@)", uid, ok ? @"成功" : @"失败");
+    NSLog(@"[熊猫] 提交任务: %@ success=%d", taskId, success);
+    
+    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (error) {
+            if (completion) completion(NO, error);
+            return;
+        }
+        if (data) {
+            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+            BOOL ok = [json[@"success"] boolValue] || [json[@"code"] integerValue] == 0;
+            if (completion) completion(ok, ok ? nil : [NSError errorWithDomain:@"XMTaskService" code:[json[@"code"] integerValue] userInfo:@{NSLocalizedDescriptionKey: json[@"msg"] ?: @""}]);
+        }
     }];
+    [task resume];
+}
+
+#pragma mark - 调度下一轮
+
+- (void)scheduleNextTask:(NSInteger)delay {
+    if (!self.isRunning) return;
+    
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self executeNextTask];
+    });
 }
 
 @end
