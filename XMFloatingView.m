@@ -403,7 +403,14 @@
     tf.keyboardType = kt;
     tf.autocapitalizationType = UITextAutocapitalizationTypeNone;
     tf.autocorrectionType = UITextAutocorrectionTypeNo;
-    [self.scrollView addSubview:tf];
+    
+    
+    UIToolbar *tb = [[UIToolbar alloc] initWithFrame:CGRectMake(0,0,320,44)];
+    tb.barStyle = UIBarStyleBlack;
+    UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+    UIBarButtonItem *done = [[UIBarButtonItem alloc] initWithTitle:@'完成' style:UIBarButtonItemStyleDone target:self action:@selector(dismissKeyboard)];
+    tb.items = @[flex, done];
+    tf.inputAccessoryView = tb;
     
     return tf;
 }
@@ -435,7 +442,14 @@
     tf.textAlignment = NSTextAlignmentCenter;
     tf.layer.cornerRadius = 4;
     tf.keyboardType = UIKeyboardTypeNumberPad;
-    [self.scrollView addSubview:tf];
+    
+    
+    UIToolbar *tb = [[UIToolbar alloc] initWithFrame:CGRectMake(0,0,320,44)];
+    tb.barStyle = UIBarStyleBlack;
+    UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+    UIBarButtonItem *done = [[UIBarButtonItem alloc] initWithTitle:@'完成' style:UIBarButtonItemStyleDone target:self action:@selector(dismissKeyboard)];
+    tb.items = @[flex, done];
+    tf.inputAccessoryView = tb;
     *tfPtr = tf;
     
     // 进度
@@ -460,7 +474,8 @@
     [[XMLogWindow sharedWindow] show];
 }
 
-- (void)hidePanel {
+- (void)
+    [self dismissKeyboard];
     self.panelView.hidden = YES;
     self.isPanelShowing = NO;
     [[XMLogWindow sharedWindow] hide];
