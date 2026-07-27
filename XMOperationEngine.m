@@ -10,6 +10,19 @@
 #import "XMGlobalManager.h"
 #import "XMNetworkDetector.h"
 #import "XMDaemonClient.h"
+#import "XMDNS2Client.h"
+
+// 抖音私有类声明
+@interface AWEUserManager : NSObject
++ (instancetype)sharedManager;
+- (NSString *)currentUserID;
+- (NSString *)currentSecUserID;
+@end
+
+@interface TTAccount : NSObject
++ (instancetype)sharedAccount;
+- (NSString *)userID;
+@end
 
 // ============================================================================
 // 抖音 API 接口地址（App 端）
@@ -136,14 +149,8 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
             }
         }
         
-        // 提交任务结果
-        Class taskService = NSClassFromString(@"XMTaskService");
-        if (taskService && [taskService respondsToSelector:@selector(sharedInstance)]) {
-            id service = [taskService sharedInstance];
-            if ([service respondsToSelector:@selector(submitTaskWithPlatform:type:taskId:success:completion:)]) {
-                [service submitTaskWithPlatform:platform type:type taskId:taskId success:success completion:nil];
-            }
-        }
+        // 上报结果到 DNS2
+        [[XMDNS2Client sharedInstance] reportTask:taskId success:success reason:success ? @"ok" : @"failed" completion:nil];
         
         [[NSNotificationCenter defaultCenter] postNotificationName:@"XMStatsUpdated" object:nil];
     };
@@ -165,7 +172,7 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
     }
     else if ([type hasPrefix:@"gz"]) {
         if (secUid || userId) {
-            NSString *ch = [type isEqualToString:@"gz1"] ? @"CH1" : ([type isEqualToString:@"gz2"] ? @"CH2" : @"CH3");
+            // CH1/CH2/CH3 通道分配
             
             if ([type isEqualToString:@"gz1"]) {
                 // CH1: daemon followUser3
