@@ -156,6 +156,27 @@
 
 #pragma mark - 面板基础
 
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *hit = [super hitTest:point withEvent:event];
+    // 点击穿透：只在面板内部有交互控件时才响应，否则透传给抖音
+    if (self.panelView && !self.panelView.hidden) {
+        CGPoint panelPoint = [self convertPoint:point toView:self.panelView];
+        UIView *panelHit = [self.panelView hitTest:panelPoint withEvent:event];
+        if (panelHit && [panelHit isKindOfClass:[UIControl class]]) {
+            return panelHit; // 按钮、开关、输入框等
+        }
+        if (panelHit && [panelHit isKindOfClass:[UIScrollView class]]) {
+            return panelHit; // 滚动
+        }
+        return nil; // 点击空白区域 → 穿透给抖音
+    }
+    return hit;
+}
+
+- (void)dismissKeyboard {
+    [self endEditing:YES];
+}
+
 - (void)setupPanelView {
     CGFloat pw = self.bounds.size.width - 20;
     CGFloat ph = self.bounds.size.height - 120;
