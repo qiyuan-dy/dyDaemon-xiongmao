@@ -66,6 +66,9 @@
 - (void)saveConfig;
 - (void)loadConfig;
 
+/// 检查各通道目标是否达到（自动停止）
+- (void)checkCHTargetReached;
+
 /// 便捷日志（广播通知 "XMLogMessage"）
 + (void)log:(NSString *)format, ... NS_FORMAT_FUNCTION(1,2);
 
