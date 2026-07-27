@@ -60,7 +60,6 @@
 
 // 按钮
 @property (nonatomic, strong) UIButton *configBtn;
-@property (nonatomic, strong) UIButton *configBtn;
 @property (nonatomic, strong) UIButton *closeBtn;
 
 @end
@@ -307,6 +306,17 @@
 
 #pragma mark - 辅助方法
 
+#pragma mark - 辅助 UI 创建
+
+- (UILabel *)label:(CGRect)frame text:(NSString *)text font:(UIFont *)font align:(NSTextAlignment)align {
+    UILabel *lbl = [[UILabel alloc] initWithFrame:frame];
+    lbl.text = text;
+    lbl.font = font;
+    lbl.textAlignment = align;
+    lbl.textColor = [UIColor whiteColor];
+    return lbl;
+}
+
 - (CGFloat)addSectionLabel:(NSString *)text y:(CGFloat)y w:(CGFloat)w x:(CGFloat)x {
     UIView *bar = [[UIView alloc] initWithFrame:CGRectMake(x, y, w, 1)];
     bar.backgroundColor = RGBA(60, 60, 80, 0.6);
@@ -538,8 +548,6 @@
     gm.followCH1Target = [self.followCH1Target.text integerValue];
     gm.followCH2Target = [self.followCH2Target.text integerValue];
     gm.followCH3Target = [self.followCH3Target.text integerValue];
-    
-    gm.followEnabled = (gm.followCH1Enabled || gm.followCH2Enabled || gm.followCH3Enabled);
     
     gm.diggEnabled = self.diggSwitch.isOn;
     gm.collectEnabled = self.collectSwitch.isOn;
