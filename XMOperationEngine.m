@@ -112,7 +112,6 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
     NSString *taskId = userInfo[@"taskId"];
     NSDictionary *params = userInfo[@"params"];
     NSString *type = userInfo[@"type"];
-    NSString *platform = userInfo[@"platform"];
     
     NSLog(@"[熊猫-操作引擎] 执行任务: %@ type=%@", taskId, type);
     
