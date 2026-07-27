@@ -158,23 +158,34 @@
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *hit = [super hitTest:point withEvent:event];
-    // 点击穿透：只在面板内部有交互控件时才响应，否则透传给抖音
-    if (self.panelView && !self.panelView.hidden) {
-        CGPoint panelPoint = [self convertPoint:point toView:self.panelView];
-        UIView *panelHit = [self.panelView hitTest:panelPoint withEvent:event];
-        if (panelHit && [panelHit isKindOfClass:[UIControl class]]) {
-            return panelHit; // 按钮、开关、输入框等
+    
+    if (!self.panelView || self.panelView.hidden) {
+        // 面板隐藏：只响应悬浮球点击
+        if (hit && (hit == self.ballView || [hit isDescendantOfView:self.ballView])) {
+            return hit;
         }
-        if (panelHit && [panelHit isKindOfClass:[UIScrollView class]]) {
-            return panelHit; // 滚动
-        }
-        return nil; // 点击空白区域 → 穿透给抖音
+        return nil; // 其他区域穿透给抖音
     }
-    return hit;
+    
+    // 面板显示：检查点击位置
+    CGPoint panelPoint = [self convertPoint:point toView:self.panelView];
+    BOOL insidePanel = [self.panelView pointInside:panelPoint withEvent:event];
+    
+    if (insidePanel) {
+        // 面板内部：找实际命中控件
+        UIView *panelHit = [self.panelView hitTest:panelPoint withEvent:event];
+        if (panelHit) return panelHit;
+        return hit; // 面板内空白
+    }
+    
+    // 点击面板外 → 关闭面板 + 透传
+    [self hidePanel];
+    // 让触摸穿透到抖音（via pointInside override on the whole view）
+    return nil;
 }
 
 - (void)dismissKeyboard {
-    [self endEditing:YES];
+    [[UIApplication sharedApplication] sendAction:@selector(resignFirstResponder) to:nil from:nil forEvent:nil];
 }
 
 - (void)setupPanelView {
