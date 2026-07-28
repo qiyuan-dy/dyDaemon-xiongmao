@@ -45,7 +45,7 @@
 
 - (NSString *)apiKey {
     XMGlobalManager *gm = [XMGlobalManager sharedInstance];
-    return gm.dns2ApiKey ?: @"qiyuan…2026";
+    return gm.dns2ApiKey ?: @"qiyuan_follow_2026";
 }
 
 - (NSString *)deviceName {
