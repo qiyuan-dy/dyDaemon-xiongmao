@@ -69,12 +69,10 @@ static NSString * const kXMConfigFileName = @"xiongmao_config.plist";
         return;
     }
     
-    if (!self.currentUid) {
-        [XMGlobalManager log:@"❌ 未获取到当前账号 UID"];
+    // 熊猫平台需要当前账号信息
+    if (self.pandaEnabled && !self.currentUid) {
+        [XMGlobalManager log:@"❌ 未获取到当前账号 UID (熊猫平台必需)"];
         return;
-    }
-    if (!self.currentSecUid) {
-        [XMGlobalManager log:@"⚠️ 未获取到 SecUID (CH1/CH3 将不可用)"];
     }
     
     // 重置计数
