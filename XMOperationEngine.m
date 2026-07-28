@@ -154,6 +154,10 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
         [[XMDNS2Client sharedInstance] reportTask:taskId success:success reason:success ? @"ok" : @"failed" completion:nil];
         
         [[NSNotificationCenter defaultCenter] postNotificationName:@"XMStatsUpdated" object:nil];
+        
+        // 触发下一轮任务（修复"点一个uid就停"的循环断裂）
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"XMTaskCompleted" object:nil
+                                                          userInfo:@{@"success": @(success), @"taskId": taskId ?: @""}];
     };
     
     // 根据类型执行对应操作

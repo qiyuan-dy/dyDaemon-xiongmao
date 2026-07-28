@@ -42,6 +42,10 @@
                                                  selector:@selector(onStopTasks)
                                                      name:@"XMStopTasks"
                                                    object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(onTaskCompleted:)
+                                                     name:@"XMTaskCompleted"
+                                                   object:nil];
     }
     return self;
 }
@@ -58,6 +62,20 @@
 
 - (void)onStopTasks {
     [self stopTaskLoop];
+}
+
+- (void)onTaskCompleted:(NSNotification *)note {
+    if (!self.isRunning) return;
+    
+    BOOL success = [note.userInfo[@"success"] boolValue];
+    NSString *taskId = note.userInfo[@"taskId"];
+    
+    XMGlobalManager *gm = [XMGlobalManager sharedInstance];
+    NSInteger delay = gm.minInterval + arc4random_uniform((uint32_t)(gm.maxInterval - gm.minInterval + 1));
+    
+    [XMGlobalManager log:@"🔄 任务 %@ %@ → %lds 后取下一个", taskId, success ? @"完成" : @"失败", (long)delay];
+    
+    [self scheduleNextTask:delay];
 }
 
 #pragma mark - 获取启用的数据源
