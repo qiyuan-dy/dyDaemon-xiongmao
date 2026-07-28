@@ -84,9 +84,6 @@ static void __attribute__((constructor)) initialize() {
 // 更新当前用户信息（多方案降级查找）
 // ============================================================================
 
-// 前向声明 objc_msgSend
-OBJC_EXPORT id objc_msgSend(id self, SEL op, ...);
-
 static void updateCurrentUserInfo() {
     NSLog(@"[熊猫] === 开始获取账号信息 ===");
     
