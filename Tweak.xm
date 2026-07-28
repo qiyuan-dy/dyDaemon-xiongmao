@@ -106,7 +106,10 @@ static void updateCurrentUserInfo() {
         for (NSString *sn in sharedSels) {
             SEL sel = NSSelectorFromString(sn);
             if ([cls respondsToSelector:sel]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
                 inst = [cls performSelector:sel];
+#pragma clang diagnostic pop
                 if (inst) { NSLog(@"[熊猫] %@.%@ 获取实例成功", cn, sn); break; }
             }
         }
@@ -115,7 +118,10 @@ static void updateCurrentUserInfo() {
         for (NSString *sn in uidSels) {
             SEL sel = NSSelectorFromString(sn);
             if ([inst respondsToSelector:sel]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
                 NSString *v = [inst performSelector:sel];
+#pragma clang diagnostic pop
                 if (v && [v isKindOfClass:[NSString class]] && v.length > 0) {
                     [XMGlobalManager sharedInstance].currentUid = v;
                     NSLog(@"[熊猫] ✅ UID(%@.%@) = %@", cn, sn, v);
@@ -126,7 +132,10 @@ static void updateCurrentUserInfo() {
         for (NSString *sn in secSels) {
             SEL sel = NSSelectorFromString(sn);
             if ([inst respondsToSelector:sel]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
                 NSString *v = [inst performSelector:sel];
+#pragma clang diagnostic pop
                 if (v && [v isKindOfClass:[NSString class]] && v.length > 0) {
                     [XMGlobalManager sharedInstance].currentSecUid = v;
                     NSLog(@"[熊猫] ✅ SecUID(%@.%@) = %@", cn, sn, v);
