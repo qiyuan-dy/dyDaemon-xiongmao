@@ -57,10 +57,13 @@ static NSString * const kDaemonHost = @"http://127.0.0.1:12933";
 - (void)ch2_followUserByLive:(NSString *)uid
                   completion:(void (^)(BOOL, NSString *))completion {
     
-    // CH2 只需 user_id，sec_id 可选（传空也行）
-    NSString *urlStr = [NSString stringWithFormat:@"%@/followUserByLive2?user_id=%@",
+    XMGlobalManager *gm = [XMGlobalManager sharedInstance];
+    NSString *secUid = gm.currentSecUid ?: @"";
+    
+    NSString *urlStr = [NSString stringWithFormat:@"%@/followUserByLive2?user_id=%@&sec_id=%@",
                         kDaemonHost,
-                        [self urlEncode:uid]];
+                        [self urlEncode:uid],
+                        [self urlEncode:secUid]];
     
     [XMGlobalManager log:@"🟢 CH2 daemon关注: uid=%@", uid];
     [self get:urlStr completion:completion];
