@@ -76,6 +76,16 @@ static void __attribute__((constructor)) initialize() {
         // 尝试获取当前用户信息
         updateCurrentUserInfo();
         
+        // 自动启动任务引擎（延迟确保 daemon 就绪）
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            XMGlobalManager *gm = [XMGlobalManager sharedInstance];
+            if (gm.dns2Enabled) {
+                NSLog(@"[熊猫] 自动启动: DNS2=%d CH1=%d CH2=%d CH3=%d",
+                      gm.dns2Enabled, gm.followCH1Enabled, gm.followCH2Enabled, gm.followCH3Enabled);
+                [gm startAllTasks];
+            }
+        });
+        
         NSLog(@"[熊猫] 初始化完成");
     });
 }
