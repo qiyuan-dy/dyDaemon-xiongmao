@@ -69,9 +69,12 @@ static NSString * const kXMConfigFileName = @"xiongmao_config.plist";
         return;
     }
     
-    if (!self.currentUid || !self.currentSecUid) {
-        [XMGlobalManager log:@"❌ 未获取到当前账号信息"];
+    if (!self.currentUid) {
+        [XMGlobalManager log:@"❌ 未获取到当前账号 UID"];
         return;
+    }
+    if (!self.currentSecUid) {
+        [XMGlobalManager log:@"⚠️ 未获取到 SecUID (CH1/CH3 将不可用)"];
     }
     
     // 重置计数

@@ -81,29 +81,83 @@ static void __attribute__((constructor)) initialize() {
 }
 
 // ============================================================================
-// 更新当前用户信息
+// 更新当前用户信息（多方案降级查找）
 // ============================================================================
 
+// 前向声明 objc_msgSend
+OBJC_EXPORT id objc_msgSend(id self, SEL op, ...);
+
 static void updateCurrentUserInfo() {
-    // 尝试通过 AWEUserManager 获取当前用户信息
-    Class userManagerClass = NSClassFromString(@"AWEUserManager");
-    if (userManagerClass) {
-        id userManager = [userManagerClass sharedManager];
-        if ([userManager respondsToSelector:@selector(currentUserID)]) {
-            NSString *uid = [userManager currentUserID];
-            if (uid) {
-                [XMGlobalManager sharedInstance].currentUid = uid;
-                NSLog(@"[熊猫] 获取到 UID: %@", uid);
+    NSLog(@"[熊猫] === 开始获取账号信息 ===");
+    
+    // 多类名方案
+    NSArray *classNames = @[
+        @"AWEUserManager",
+        @"IESUserModel",
+        @"AWELoginManager",
+        @"TTAccount"
+    ];
+    NSArray *uidSels = @[@"currentUserID", @"userID", @"uid", @"currentUserId"];
+    NSArray *secSels  = @[@"currentSecUserID", @"secUserID", @"secUid"];
+    NSArray *sharedSels = @[@"sharedManager", @"sharedInstance", @"sharedAccount", @"sharedModel"];
+    
+    for (NSString *cn in classNames) {
+        Class cls = NSClassFromString(cn);
+        if (!cls) { NSLog(@"[熊猫] 类 %@ 不存在", cn); continue; }
+        NSLog(@"[熊猫] 找到类: %@", cn);
+        
+        id inst = nil;
+        for (NSString *sn in sharedSels) {
+            SEL sel = NSSelectorFromString(sn);
+            if ([cls respondsToSelector:sel]) {
+                inst = ((id(*)(id,SEL))objc_msgSend)(cls, sel);
+                if (inst) { NSLog(@"[熊猫] %@.%@ 获取实例成功", cn, sn); break; }
             }
         }
-        if ([userManager respondsToSelector:@selector(currentSecUserID)]) {
-            NSString *secUid = [userManager currentSecUserID];
-            if (secUid) {
-                [XMGlobalManager sharedInstance].currentSecUid = secUid;
-                NSLog(@"[熊猫] 获取到 SecUID: %@", secUid);
+        if (!inst) continue;
+        
+        for (NSString *sn in uidSels) {
+            SEL sel = NSSelectorFromString(sn);
+            if ([inst respondsToSelector:sel]) {
+                id v = ((id(*)(id,SEL))objc_msgSend)(inst, sel);
+                if (v && [v isKindOfClass:[NSString class]] && [(NSString*)v length] > 0) {
+                    [XMGlobalManager sharedInstance].currentUid = v;
+                    NSLog(@"[熊猫] ✅ UID(%@.%@) = %@", cn, sn, v);
+                    break;
+                }
+            }
+        }
+        for (NSString *sn in secSels) {
+            SEL sel = NSSelectorFromString(sn);
+            if ([inst respondsToSelector:sel]) {
+                id v = ((id(*)(id,SEL))objc_msgSend)(inst, sel);
+                if (v && [v isKindOfClass:[NSString class]] && [(NSString*)v length] > 0) {
+                    [XMGlobalManager sharedInstance].currentSecUid = v;
+                    NSLog(@"[熊猫] ✅ SecUID(%@.%@) = %@", cn, sn, v);
+                    break;
+                }
+            }
+        }
+        if ([XMGlobalManager sharedInstance].currentUid) break;
+    }
+    
+    // 降级: NSUserDefaults
+    if (![XMGlobalManager sharedInstance].currentUid) {
+        NSLog(@"[熊猫] 类查找全失败, 尝试 UserDefaults...");
+        NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
+        for (NSString *k in @[@"uid", @"user_id", @"current_uid", @"aweme_uid"]) {
+            NSString *v = [ud stringForKey:k];
+            if (v.length > 5) {
+                [XMGlobalManager sharedInstance].currentUid = v;
+                NSLog(@"[熊猫] ✅ UID(UserDefaults[%@]) = %@", k, v);
+                break;
             }
         }
     }
+    
+    NSLog(@"[熊猫] 账号信息结果: UID=%@ SecUID=%@",
+          [XMGlobalManager sharedInstance].currentUid ?: @"(nil)",
+          [XMGlobalManager sharedInstance].currentSecUid ?: @"(nil)");
 }
 
 // ============================================================================

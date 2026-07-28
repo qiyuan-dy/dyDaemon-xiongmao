@@ -12,6 +12,8 @@
 #import "XMDaemonClient.h"
 #import "XMDNS2Client.h"
 
+#import <objc/message.h>
+
 // 抖音私有类声明
 @interface AWEUserManager : NSObject
 + (instancetype)sharedManager;
@@ -242,44 +244,74 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
 #pragma mark - 获取当前用户信息
 
 - (void)fetchCurrentUserInfo {
-    NSLog(@"[熊猫] 获取当前用户信息...");
+    NSLog(@"[熊猫] === 面板手动获取账号信息 ===");
     
-    // 方式1: 从 AWEUserManager 获取
-    Class userManager = NSClassFromString(@"AWEUserManager");
-    if (userManager && [userManager respondsToSelector:@selector(sharedManager)]) {
-        id manager = [userManager sharedManager];
+    // 多类名 + 多选择器降级查找
+    NSArray *classNames = @[
+        @"AWEUserManager",
+        @"IESUserModel",
+        @"AWELoginManager",
+        @"TTAccount"
+    ];
+    NSArray *uidSels = @[@"currentUserID", @"userID", @"uid", @"currentUserId"];
+    NSArray *secSels  = @[@"currentSecUserID", @"secUserID", @"secUid"];
+    NSArray *sharedSels = @[@"sharedManager", @"sharedInstance", @"sharedAccount", @"sharedModel"];
+    
+    for (NSString *cn in classNames) {
+        Class cls = NSClassFromString(cn);
+        if (!cls) continue;
         
-        if ([manager respondsToSelector:@selector(currentUserID)]) {
-            NSString *uid = [manager currentUserID];
-            if (uid) {
-                [XMGlobalManager sharedInstance].currentUid = uid;
-                NSLog(@"[熊猫] UID: %@", uid);
+        id inst = nil;
+        for (NSString *sn in sharedSels) {
+            SEL sel = NSSelectorFromString(sn);
+            if ([cls respondsToSelector:sel]) {
+                inst = ((id(*)(id,SEL))objc_msgSend)(cls, sel);
+                if (inst) break;
             }
         }
+        if (!inst) continue;
         
-        if ([manager respondsToSelector:@selector(currentSecUserID)]) {
-            NSString *secUid = [manager currentSecUserID];
-            if (secUid) {
-                [XMGlobalManager sharedInstance].currentSecUid = secUid;
-                NSLog(@"[熊猫] SecUID: %@", secUid);
-            }
-        }
-    }
-    
-    // 方式2: 从 TTAccount 获取
-    if (![XMGlobalManager sharedInstance].currentUid) {
-        Class ttAccount = NSClassFromString(@"TTAccount");
-        if (ttAccount && [ttAccount respondsToSelector:@selector(sharedAccount)]) {
-            id account = [ttAccount sharedAccount];
-            if ([account respondsToSelector:@selector(userID)]) {
-                NSString *uid = [account userID];
-                if (uid) {
-                    [XMGlobalManager sharedInstance].currentUid = uid;
-                    NSLog(@"[熊猫] UID(TTAccount): %@", uid);
+        for (NSString *sn in uidSels) {
+            SEL sel = NSSelectorFromString(sn);
+            if ([inst respondsToSelector:sel]) {
+                id v = ((id(*)(id,SEL))objc_msgSend)(inst, sel);
+                if (v && [v isKindOfClass:[NSString class]] && [(NSString*)v length] > 0) {
+                    [XMGlobalManager sharedInstance].currentUid = v;
+                    NSLog(@"[熊猫] UID(%@.%@)=%@", cn, sn, v);
+                    break;
                 }
             }
         }
+        for (NSString *sn in secSels) {
+            SEL sel = NSSelectorFromString(sn);
+            if ([inst respondsToSelector:sel]) {
+                id v = ((id(*)(id,SEL))objc_msgSend)(inst, sel);
+                if (v && [v isKindOfClass:[NSString class]] && [(NSString*)v length] > 0) {
+                    [XMGlobalManager sharedInstance].currentSecUid = v;
+                    NSLog(@"[熊猫] SecUID(%@.%@)=%@", cn, sn, v);
+                    break;
+                }
+            }
+        }
+        if ([XMGlobalManager sharedInstance].currentUid) break;
     }
+    
+    // NSUserDefaults 降级
+    if (![XMGlobalManager sharedInstance].currentUid) {
+        NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
+        for (NSString *k in @[@"uid", @"user_id", @"current_uid", @"aweme_uid"]) {
+            NSString *v = [ud stringForKey:k];
+            if (v.length > 5) {
+                [XMGlobalManager sharedInstance].currentUid = v;
+                NSLog(@"[熊猫] UID(UD[%@])=%@", k, v);
+                break;
+            }
+        }
+    }
+    
+    NSLog(@"[熊猫] 账号结果: UID=%@ SecUID=%@",
+          [XMGlobalManager sharedInstance].currentUid ?: @"(nil)",
+          [XMGlobalManager sharedInstance].currentSecUid ?: @"(nil)");
 }
 
 #pragma mark - 点赞
