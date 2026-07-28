@@ -181,8 +181,8 @@ static NSString * const kSicilyCollectPath = @"/sicily/v1/collect/";
                     submitBlock(s);
                 }];
             } else if ([type isEqualToString:@"gz2"]) {
-                // CH2: daemon followUserByLive2（只需UID）
-                [[XMDaemonClient sharedInstance] ch2_followUserByLive:userId completion:^(BOOL s, NSString *msg) {
+                // CH2: daemon followUserByLive2
+                [[XMDaemonClient sharedInstance] ch2_followUserByLive:userId secUid:secUid completion:^(BOOL s, NSString *msg) {
                     submitBlock(s);
                 }];
             } else {

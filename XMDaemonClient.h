@@ -18,8 +18,9 @@
                 secUid:(NSString *)secUid
             completion:(void (^)(BOOL success, NSString *msg))completion;
 
-/// CH2: followUserByLive2（只需 uid）
+/// CH2: followUserByLive2（需 uid，可选 sec_uid）
 - (void)ch2_followUserByLive:(NSString *)uid
+                      secUid:(NSString *)secUid
                   completion:(void (^)(BOOL success, NSString *msg))completion;
 
 @end
